@@ -52,9 +52,21 @@ The holdout is built **only from the official `test/` split**, ensuring no overl
 /home/vipuser/qwenenv/bin/python /home/vipuser/build_mvtec_holdout1k.py \
   --src /home/vipuser/data/mvtec_anomaly_detection \
   --out /home/vipuser/data/mvtec_cls_holdout1k_v1 \
-  --n-good 500 --n-defect 500 --seed 2025
-   
+  --n-good 500 --n-defect 500 --seed 2025  
 ```
+### KSDD2 (direct RAW → balanced 1:1)
+
+Download and unzip **KSDD2** to `/home/vipuser/data/KSDD2_raw/`.
+Build a **balanced 1:1 subset** directly from RAW (all defects + equal random goods):
+```bash
+/home/vipuser/qwenenv/bin/python build_ksdd2_1to1_from_raw.py
+```
+This creates:  
+data/ksdd2_1to1_allDef/val/{good, defect}  
+data/ksdd2_1to1_allDef/manifest.json  
+runs_eval/splits/ksdd2_1to1_good.txt  
+runs_eval/splits/ksdd2_1to1_defect.txt  
+  
 ## 4bit Qlora Fine-tuning on Qwen-2.5L-VL
 
 ## Edge-Cloud Collaboration
