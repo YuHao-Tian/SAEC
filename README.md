@@ -31,6 +31,9 @@ pip install -r requirements/requirements_llava.txt
 
 ```
 
+## Dataset downloads and preparation
+The experiments used two datasets: MVTec AD dataset(Download link:https://www.mvtec.com/company/research/datasets/mvtec-ad) and ksdd2 dataset(Download link:https://www.vicos.si/resources/kolektorsdd2/) 
+
 ## 4bit Qlora Fine-tuning on Qwen-2.5L-VL
 
 ## Edge-Cloud Collaboration
