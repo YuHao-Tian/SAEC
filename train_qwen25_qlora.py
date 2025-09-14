@@ -16,7 +16,7 @@ from tqdm import tqdm
 
 from transformers import (
     AutoProcessor,
-    BitsAndBytesConfig,   # 注意：从 transformers 导入
+    BitsAndBytesConfig, 
     TrainingArguments,
     Trainer,
 )
@@ -214,21 +214,21 @@ def main():
         bf16=True,
         gradient_checkpointing=True,
         dataloader_num_workers=2,
-        report_to=[],                 # 不写 wandb
-        remove_unused_columns=False,  # 关键补丁1：别丢字段
-        tf32=True,                    # 关键补丁2：加速（支持的 GPU 上）
+        report_to=[],                
+        remove_unused_columns=False,  
+        tf32=True,                  
     )
 
     trainer = Trainer(
         model=model,
         args=targs,
         train_dataset=train_ds,
-        eval_dataset=val_ds,      # 训练中不强制自动评估；结束后手动评估
+        eval_dataset=val_ds,     
         data_collator=collator,
     )
 
     trainer.train()
-    trainer.save_model(args.out)  # 在 out 下保存 LoRA adapter
+    trainer.save_model(args.out) 
 
     # 手动 eval（生成式）
     evaluate_on_jsonl(trainer.model, processor, val_path, device=trainer.model.device)
