@@ -5,7 +5,27 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-# ------ globals ------
+PROMPT_ZERO_SHOT = """[Inspector role]
+You are an industrial quality inspector at the final station.
+
+[Task]
+Classify the product in the image into exactly one label: good or defect.
+
+[Focus]
+Only consider the product itself; ignore background, fixtures, table, lighting glare, and minor illumination variations.
+
+[Defect cues]
+• Scratch / crack / hole / missing material
+• Stain / foreign object / residue / leakage
+• Missing or misaligned printing
+• Clear color or texture anomaly
+• Misassembly / omission / position shift
+• Abnormal weld / seam
+
+[Output]
+Respond strictly as: "Label: 0" or "Label: 1".
+"""
+
 PATH2GT = {}
 EXTS = (".png",".jpg",".jpeg",".bmp",".tif",".tiff",".webp",".PNG",".JPG",".JPEG",".BMP",".TIF",".TIFF",".WEBP")
 
@@ -111,10 +131,11 @@ def complexity_split(data_root, target_q_ratio=0.70, size=192):
     s_list = [p for (p,s) in scores if s <  thr]
     return s_list, q_list, thr
 
-# -------- Qwen eval (batched, thr on prob) --------
+# -------- Qwen eval (batched, thr on prob); if pred==1, also return JSON {bboxes, desc} --------
 def qwen_eval_subset_with_thr_batched(base, adapter, data_root, thr=0.19, device="cuda:0",
-                                      prompt="You are an industrial inspector. Decide defect(1) or good(0). Respond exactly as 'Label: 0' or 'Label: 1'.",
-                                      batch_size=16, resize=448, load_4bit=False, attn="auto"):
+                                      prompt=PROMPT_ZERO_SHOT,
+                                      batch_size=16, resize=448, load_4bit=False, attn="auto",
+                                      gen_json_if_defect=True, json_max_new_tokens=192):
     import torch, glob
     from PIL import Image as _Image
     from transformers import AutoProcessor
@@ -179,12 +200,23 @@ def qwen_eval_subset_with_thr_batched(base, adapter, data_root, thr=0.19, device
     chat = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
     base_text = chat + "Label: "
 
+    json_text = (
+        prompt.strip()
+        + f"\n\nIf the product is defective (Label 1), return a JSON object with keys 'bboxes' and 'desc'. "
+          f"'bboxes' is a list of [x1,y1,x2,y2] pixel coordinates (integers) in the resized {resize}x{resize} image space. "
+          "Respond with JSON only."
+    )
+    json_chat = processor.apply_chat_template(
+        [{"role":"user","content":[{"type":"image"},{"type":"text","text":json_text}]}],
+        tokenize=False, add_generation_prompt=True
+    )
+
     def _iter_batches(paths):
         for i in range(0, len(paths), batch_size):
             yield paths[i:i+batch_size]
 
     @torch.inference_mode()
-    def _run(paths):
+    def _run_prob(paths):
         imgs=[]
         for p in paths:
             im=_Image.open(p).convert("RGB")
@@ -201,22 +233,74 @@ def qwen_eval_subset_with_thr_batched(base, adapter, data_root, thr=0.19, device
         prob1 = torch.softmax(two, dim=1)[:,1]
         return prob1.detach().float().cpu().numpy()
 
+    @torch.inference_mode()
+    def _gen_json_one(path):
+        im=_Image.open(path).convert("RGB")
+        if resize and resize>0: im = im.resize((resize,resize), _Image.BILINEAR)
+        inputs = processor(text=[json_chat], images=[im], return_tensors="pt", padding=True)
+        inputs = {k:v.to(dev) for k,v in inputs.items()}
+        out_ids = model.generate(**inputs, max_new_tokens=json_max_new_tokens, do_sample=False)
+        txt = processor.batch_decode(out_ids, skip_special_tokens=True)[0]
+        m = re.search(r"\{.*\}", txt, re.S)
+        if not m: return {"bboxes": [], "desc": ""}
+        try:
+            j = json.loads(m.group(0))
+            if "bboxes" not in j: j["bboxes"]=[]
+            if "desc"   not in j: j["desc"]=""
+            return j
+        except Exception:
+            return {"bboxes": [], "desc": ""}
+
     tn=tp=fp=fn=0
     rows=[]
+    json_map={}  # path -> JSON for defect images
 
     for batch in _iter_batches(good):
-        p1 = _run(batch)
+        p1 = _run_prob(batch)
         pred = (p1 >= thr).astype(np.int32)
         tn += int((pred==0).sum()); fp += int((pred==1).sum())
-        rows += [{"gt":"good","pred":"defect" if v else "good"} for v in pred.tolist()]
+        for p, v in zip(batch, pred.tolist()):
+            rows.append({"path": p, "gt":"good", "pred":"defect" if v else "good"})
+            if v==1 and gen_json_if_defect:
+                json_map[p] = _gen_json_one(p)
 
     for batch in _iter_batches(defect):
-        p1 = _run(batch)
+        p1 = _run_prob(batch)
         pred = (p1 >= thr).astype(np.int32)
         tp += int((pred==1).sum()); fn += int((pred==0).sum())
-        rows += [{"gt":"defect","pred":"defect" if v else "good"} for v in pred.tolist()]
+        for p, v in zip(batch, pred.tolist()):
+            rows.append({"path": p, "gt":"defect", "pred":"defect" if v else "good"})
+            if v==1 and gen_json_if_defect:
+                json_map[p] = _gen_json_one(p)
 
-    return rows, dict(tn=tn, fp=fp, fn=fn, tp=tp)
+    return rows, dict(tn=tn, fp=fp, fn=fn, tp=tp), json_map
+
+# -------- YOLO detection for Label==1 visualization (draw rectangles only) --------
+def yolo_detect_and_draw(paths, weights, out_dir, conf=0.25, iou=0.45, device="cpu"):
+    os.makedirs(out_dir, exist_ok=True)
+    try:
+        from ultralytics import YOLO
+        import cv2
+        model = YOLO(weights)
+        results = model(paths, conf=conf, iou=iou, device=device, verbose=False)
+        if not isinstance(results, (list, tuple)): results=[results]
+        for p, r in zip(paths, results):
+            try:
+                img = cv2.imdecode(np.fromfile(p, dtype=np.uint8), cv2.IMREAD_COLOR)
+                if img is None: continue
+                if getattr(r, "boxes", None) is None:
+                    # nothing detected
+                    pass
+                else:
+                    for xyxy in r.boxes.xyxy.detach().cpu().numpy().tolist():
+                        x1,y1,x2,y2 = [int(round(v)) for v in xyxy[:4]]
+                        cv2.rectangle(img, (x1,y1), (x2,y2), (0,255,0), 2)  # no text
+                base = os.path.splitext(os.path.basename(p))[0] + "_yolo.jpg"
+                cv2.imencode(".jpg", img)[1].tofile(os.path.join(out_dir, base))
+            except Exception:
+                continue
+    except Exception as e:
+        print(f"[warn] YOLO detection skipped ({e})")
 
 # ================== main ==================
 def main():
@@ -227,6 +311,7 @@ def main():
     ap.add_argument("--yolo_env_py", default="/home/vipuser/yoloenv/bin/python")
     ap.add_argument("--yolo_step2",  default="/home/vipuser/step2_y11n_unsup_cls.py")
     ap.add_argument("--yolo_weights", default="yolo11s-cls.pt")
+    ap.add_argument("--yolo_det_weights", default="/home/vipuser/models/yolo11n.pt")
     ap.add_argument("--mvtec_root", default="/home/vipuser/data/mvtec_anomaly_detection")
     ap.add_argument("--yolo_smax_thr", type=float, default=0.83)
     ap.add_argument("--yolo_margin_thr", type=float, default=0.08)
@@ -239,7 +324,7 @@ def main():
     ap.add_argument("--qwen_device", default="cuda:0")
     ap.add_argument("--qwen_batch", type=int, default=16)
     ap.add_argument("--qwen_resize", type=int, default=448)
-    ap.add_argument("--qwen_prompt", default="You are an industrial inspector. Decide defect(1) or good(0). Respond exactly as 'Label: 0' or 'Label: 1'.")
+    ap.add_argument("--qwen_prompt", default=PROMPT_ZERO_SHOT)
     ap.add_argument("--qwen_4bit", type=int, default=0)
     ap.add_argument("--qwen_attn", default="auto")
 
@@ -261,7 +346,7 @@ def main():
     gt_map = {p:cls for p,cls in list_imgs(args.data)}
     make_subset_dataset(simple_list, simple_data, gt_map)
 
-    # YOLO on CPU
+    # YOLO on CPU (classification/uncertainty filter)
     yolo_csv = os.path.join(args.save_dir,"yolo_simple_keep.csv")
     env = os.environ.copy(); env["CUDA_VISIBLE_DEVICES"] = ""
     cmd = [
@@ -278,7 +363,7 @@ def main():
     subprocess.run(cmd, check=True, env=env)
     t_yolo = time.time()-t0
 
-    # read YOLO kept (map to realpath)
+    # read YOLO kept
     kept_rows=[]
     if os.path.exists(yolo_csv):
         with open(yolo_csv, newline="", encoding="utf-8") as f:
@@ -297,23 +382,23 @@ def main():
 
                 is_good = (pr=="good"   and smax>=args.yolo_smax_thr and margin>=args.yolo_margin_thr and ent<=args.yolo_ent_thr)
                 is_def  = (pr=="defect" and smax>=args.yolo_smax_thr and margin>=max(args.yolo_margin_thr,0.08) and ent<=args.yolo_ent_thr)
-                if not (is_good or (args.yolo_keep_bidir and is_def)): 
+                if not (is_good or (args.yolo_keep_bidir and is_def)):
                     continue
-                kept_rows.append({"path": pth, "gt": gt_from_path(pth), "pred": pr, "raw": ""})
+                kept_rows.append({"path": pth, "gt": gt_from_path(pth), "pred": pr})
     kept_paths=set([r["path"] for r in kept_rows])
 
-    # Q list = complexity union (simple - kept)
+    # Q list
     to_q_from_yolo = sorted(list(set(simple_list) - kept_paths))
     q_list_final = sorted(list(set(q_list_init) | set(to_q_from_yolo)))
     q_list_final = [p for p in q_list_final if p not in kept_paths]
     open(os.path.join(args.save_dir,"q_list_final.txt"),"w").write("\n".join(q_list_final))
 
-    # build q subset and eval by Qwen batched thr
+    # build q subset and eval by Qwen + JSON for defects
     q_data = os.path.join(args.save_dir, 'q_subset_data')
     make_subset_dataset(q_list_final, q_data, gt_map)
 
     t0=time.time()
-    q_rows, q_counts = qwen_eval_subset_with_thr_batched(
+    q_rows, q_counts, q_json_map = qwen_eval_subset_with_thr_batched(
         base=args.qwen_base,
         adapter=args.qwen_adapter,
         data_root=q_data,
@@ -323,15 +408,29 @@ def main():
         batch_size=args.qwen_batch,
         resize=args.qwen_resize,
         load_4bit=bool(args.qwen_4bit),
-        attn=args.qwen_attn
+        attn=args.qwen_attn,
+        gen_json_if_defect=True
     )
     t_qwen = time.time()-t0
+
+    # write Qwen JSON for defect images
+    q_jsonl = os.path.join(args.save_dir, "qwen_defect_json.jsonl")
+    with open(q_jsonl, "w", encoding="utf-8") as f:
+        for p, j in q_json_map.items():
+            f.write(json.dumps({"path": p, "json": j}, ensure_ascii=False) + "\n")
 
     # metrics
     y_m = metrics_from_rows([{"gt":r["gt"], "pred":r["pred"]} for r in kept_rows])
     q_m = metrics_from_rows([{"gt":r["gt"], "pred":r["pred"]} for r in q_rows])
-    merged = [{"gt":r["gt"], "pred":r["pred"]} for r in kept_rows] + [{"gt":r["gt"], "pred":r["pred"]} for r in q_rows]
-    m_m = metrics_from_rows(merged)
+    merged = [{"gt":r["gt"], "pred":r["pred"], "path":r["path"]} for r in kept_rows] + \
+             [{"gt":r["gt"], "pred":r["pred"], "path":r["path"]} for r in q_rows]
+    m_m = metrics_from_rows([{"gt":r["gt"], "pred":r["pred"]} for r in merged])
+
+    # YOLO detection visualization for all images predicted as defect (Label==1)
+    defect_paths_final = [r["path"] for r in merged if r["pred"]=="defect"]
+    vis_dir = os.path.join(args.save_dir, "vis_yolo_det")
+    if defect_paths_final:
+        yolo_detect_and_draw(defect_paths_final, args.yolo_det_weights, vis_dir, device="cpu")
 
     N_all = len(list_imgs(args.data))
     q_share = 100.0 * q_m["N"] / max(N_all,1)
@@ -355,6 +454,10 @@ def main():
                  "parallel": total_parallel, "serial": total_serial},
         "routing": {"q_share_percent": q_share, "yolo_keep": y_m["N"], "qwen": q_m["N"], "total": N_all},
         "metrics": {"yolo": y_m, "qwen": q_m, "merged": m_m},
+        "artifacts": {
+            "qwen_defect_jsonl": q_jsonl,
+            "yolo_det_vis_dir": vis_dir,
+        },
         "params": {
             "init_q_ratio": args.init_q_ratio, "cpx_size": args.cpx_size,
             "yolo_smax_thr": args.yolo_smax_thr, "yolo_margin_thr": args.yolo_margin_thr, "yolo_ent_thr": args.yolo_ent_thr,
@@ -365,6 +468,8 @@ def main():
     }
     json.dump(summary, open(os.path.join(args.save_dir,"summary.json"),"w"), indent=2, ensure_ascii=False)
     print(f"\n[FILES] summary : {os.path.join(args.save_dir,'summary.json')}")
+    print(f"[FILES] qwen JSON (defect) : {q_jsonl}")
+    print(f"[FILES] YOLO detections drawn to : {vis_dir}")
     print("Done.")
 
 if __name__ == "__main__":
