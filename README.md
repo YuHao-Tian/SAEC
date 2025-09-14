@@ -32,20 +32,29 @@ pip install -r requirements/requirements_llava.txt
 ```
 
 ## Dataset downloads and preparation
-The experiments used two datasets: MVTec AD dataset(Download link:https://www.mvtec.com/company/research/datasets/mvtec-ad) and ksdd2 dataset(Download link:https://www.vicos.si/resources/kolektorsdd2/) 
-我们把实验的数据集进行改动，把Both are converted to a binary format val/{good, defect} with a unified directory struc- ture and an approximately 1:1 class ratio.的同时，并不影响qlora的训练的数据集，不让数据被预先看见或污染（这块怎么说，你来，这句需要说嘛？）
 
+We use two datasets: **MVTec AD** (https://www.mvtec.com/company/research/datasets/mvtec-ad) and **KolektorSDD2 (KSDD2)** (https://www.vicos.si/resources/kolektorsdd2/).
 
+### MVTec (evaluation holdout)
+
+MVTec is converted into a **binary holdout** with a unified directory structure and an approximately 1:1 class ratio:
+  
+<OUT>/  
+  val/  
+    good/  
+    defect/  
+  manifest.json  
+   
+The holdout is built **only from the official `test/` split**, ensuring no overlap with the QLoRA SFT training data.
+
+**Build the holdout:**
+```bash
 /home/vipuser/qwenenv/bin/python /home/vipuser/build_mvtec_holdout1k.py \
   --src /home/vipuser/data/mvtec_anomaly_detection \
   --out /home/vipuser/data/mvtec_cls_holdout1k_v1 \
   --n-good 500 --n-defect 500 --seed 2025
-
-[HOLDOUT1K READY]
-good=467  defect=500  total=967
-root: <Your ROOT>/data/mvtec_cls_holdout1k_v1
-manifest: <Your ROOT>/data/mvtec_cls_holdout1k_v1/manifest.json
-
+   
+```
 ## 4bit Qlora Fine-tuning on Qwen-2.5L-VL
 
 ## Edge-Cloud Collaboration
