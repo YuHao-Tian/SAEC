@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+import os, json, glob, random, argparse
+from pathlib import Path
+
+EXTS = (".png",".jpg",".jpeg",".bmp",".tif",".tiff")
+
+PROMPTS = [
+    "Classify if the image has any defect. Reply strictly with 'Label: 0' (no defect) or 'Label: 1' (defect).",
+    "Binary decision: Is there any anomaly/defect? Output exactly 'Label: 0' or 'Label: 1'.",
+    "Determine presence of defect (1) vs good (0). Answer: 'Label: 0' or 'Label: 1' only."
+]
+
+def list_imgs(d):
+    files=[]
+    for e in EXTS: files+=glob.glob(os.path.join(d, f"*{e}"))
+    return sorted(files)
+
+def build_pair(img_path, label):
+    prompt = random.choice(PROMPTS)
+    # chat 格式，最后一条 assistant 给出监督标签
+    return {
+        "messages":[
+            {"role":"system","content":[{"type":"text","text":"You are an industrial visual inspector. Be concise."}]},
+            {"role":"user","content":[
+                {"type":"image","image":f"file://{img_path}"},
+                {"type":"text","text":prompt}
+            ]},
+            {"role":"assistant","content":[{"type":"text","text":f"Label: {label}"}]}
+        ]
+    }
+
+def main(src, out, defect_train_ratio=0.5, seed=42):
+    random.seed(seed)
+    out = Path(out); out.mkdir(parents=True, exist_ok=True)
+    train_jsonl = out/"train.jsonl"
+    val_jsonl   = out/"val.jsonl"
+
+    # 严格划分：train <- 所有 train/good + 一部分 test/defect；val <- 全部 test/good + 余下的 test/defect
+    train_recs, val_recs = [], []
+    cats = [d for d in sorted(os.listdir(src)) if os.path.isdir(os.path.join(src,d))]
+    for c in cats:
+        cdir = os.path.join(src,c)
+        if not all(os.path.isdir(os.path.join(cdir,x)) for x in ("train","test","ground_truth")):
+            continue
+
+        # train/good -> label=0
+        tg = list_imgs(os.path.join(cdir,"train","good"))
+        train_recs += [build_pair(p, 0) for p in tg]
+
+        # test/good -> label=0 (val)
+        vg = list_imgs(os.path.join(cdir,"test","good"))
+        val_recs += [build_pair(p, 0) for p in vg]
+
+        # 全部 test 的 defect 子类
+        defect_files=[]
+        for sub in os.listdir(os.path.join(cdir,"test")):
+            if sub=="good": continue
+            defect_files += list_imgs(os.path.join(cdir,"test",sub))
+        random.shuffle(defect_files)
+
+        k = int(len(defect_files)*defect_train_ratio)
+        train_def, val_def = defect_files[:k], defect_files[k:]
+        train_recs += [build_pair(p, 1) for p in train_def]
+        val_recs   += [build_pair(p, 1) for p in val_def]
+
+    # 写文件
+    with train_jsonl.open("w", encoding="utf-8") as f:
+        for r in train_recs: f.write(json.dumps(r, ensure_ascii=False)+"\n")
+    with val_jsonl.open("w", encoding="utf-8") as f:
+        for r in val_recs: f.write(json.dumps(r, ensure_ascii=False)+"\n")
+
+    print(f"[done] train={len(train_recs)}  val={len(val_recs)}  -> {out}")
+
+if __name__=="__main__":
+    ap=argparse.ArgumentParser()
+    ap.add_argument("--src", default="/home/vipuser/data/mvtec_anomaly_detection")
+    ap.add_argument("--out", default="/home/vipuser/data/mvtec_qwen_sft")
+    ap.add_argument("--defect-train-ratio", type=float, default=0.5)
+    args=ap.parse_args()
+    main(args.src, args.out, args.defect_train_ratio)
