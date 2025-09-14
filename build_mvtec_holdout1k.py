@@ -92,3 +92,16 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+vipuser@ubuntu22:~$ /home/vipuser/qwenenv/bin/python /home/vipuser/build_mvtec_holdout1k.py \
+  --src /home/vipuser/data/mvtec_anomaly_detection \
+  --out /home/vipuser/data/mvtec_cls_holdout1k_v1 \
+  --n-good 500 --n-defect 500 --seed 2025
+
+[HOLDOUT1K READY]
+good=467  defect=500  total=967
+root: /home/vipuser/data/mvtec_cls_holdout1k_v1  (结构：val/good, val/defect)
+manifest: /home/vipuser/data/mvtec_cls_holdout1k_v1/manifest.json
+
