@@ -15,7 +15,6 @@ def list_imgs(d):
     return sorted(fs)
 
 def safecopy(src_path: str, dst_dir: Path, prefix: str) -> str:
-    """复制到 dst_dir，并加前缀避免重名；返回目标路径"""
     dst_dir.mkdir(parents=True, exist_ok=True)
     bn = os.path.basename(src_path)
     dst = dst_dir / f"{prefix}__{bn}"
@@ -47,7 +46,7 @@ def main():
     cats=[d for d in sorted(os.listdir(args.src))
           if all(os.path.isdir(os.path.join(args.src,d,x)) for x in ("train","test","ground_truth"))]
 
-    # 收集全体 test/good 与 test/defect（保留类别/子类信息）
+
     good_pool = []      # [(path, cat)]
     defect_pool = []    # [(path, cat, sub)]
     for c in cats:
@@ -63,11 +62,11 @@ def main():
     rng.shuffle(good_pool)
     rng.shuffle(defect_pool)
 
-    # 采样
+
     pick_good   = good_pool[:min(args.n_good,   len(good_pool))]
     pick_defect = defect_pool[:min(args.n_defect, len(defect_pool))]
 
-    # 复制并改名（前缀：类别/子类）
+
     copied_good=[]; copied_def=[]
     for p, c in pick_good:
         copied_good.append(safecopy(p, good_dst, f"{c}"))
@@ -93,15 +92,4 @@ def main():
 if __name__ == "__main__":
     main()
 
-
-
-vipuser@ubuntu22:~$ /home/vipuser/qwenenv/bin/python /home/vipuser/build_mvtec_holdout1k.py \
-  --src /home/vipuser/data/mvtec_anomaly_detection \
-  --out /home/vipuser/data/mvtec_cls_holdout1k_v1 \
-  --n-good 500 --n-defect 500 --seed 2025
-
-[HOLDOUT1K READY]
-good=467  defect=500  total=967
-root: /home/vipuser/data/mvtec_cls_holdout1k_v1  (结构：val/good, val/defect)
-manifest: /home/vipuser/data/mvtec_cls_holdout1k_v1/manifest.json
 
