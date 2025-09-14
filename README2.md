@@ -5,7 +5,28 @@
 All experiments are conducted on a single NVIDIA A100
 (40 GB) GPU (cloud) and an 8-core Intel Xeon Platinum
 8575C CPU (edge).
-We recommand Qlora, Llava and Yolo 11s are stored in separate virtual enviroments to avoid conflicts.
+
+ 
+## Environment & Quick Start
+
+We recommend separate virtual envs to avoid dependency conflicts.
+
+Python 3.10+ recommended
+
+# Qwen (GPU)
+python -m venv qwenenv && source qwenenv/bin/activate
+pip install -r requirements/requirements_qwen.txt
+deactivate
+
+# YOLO (CPU)
+python -m venv yoloenv && source yoloenv/bin/activate
+pip install -r requirements/requirements_yolo.txt
+deactivate
+
+# (Optional) LLaVA baseline
+python -m venv llavaenv && source llavaenv/bin/activate
+pip install -r requirements/requirements_llava.txt
+deactivate
 ## 4bit Qlora Fine-tuning on Qwen-2.5L-VL
 
 ## Edge-Cloud Collaboration
