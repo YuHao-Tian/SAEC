@@ -18,11 +18,13 @@ pip install -r requirements/requirements_qwen.txt
 
 # YOLO (CPU)
 python -m venv yoloenv && source yoloenv/bin/activate
+# Install dependencies
 pip install -r requirements/requirements_yolo.txt
 
 
 # (Optional) LLaVA baseline
 python -m venv llavaenv && source llavaenv/bin/activate
+# Install dependencies
 pip install -r requirements/requirements_llava.txt
 
 ```
