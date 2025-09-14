@@ -346,18 +346,15 @@ Lower is better.
 
 ### Resource Efficiency
 
-**KSDD2 — Resource efficiency comparison.** *Lower is better for all metrics (GPU util avg %, GPU power avg W, Energy/correct mWh, CPU memory avg GB).*  
-<!-- Add figure here -->
+**KSDD2 — Resource efficiency comparison.** *Lower is better for all metrics (GPU util avg %, GPU power avg W, Energy/correct mWh, CPU memory avg GB).*
+<p align="center">
+  <img src="KSDD2.png" width="760" alt="KSDD2 resource efficiency">
+</p>
+<p align="center"><em>Figure. Resource efficiency on KSDD2.</em></p>
 
-**MVTec AD — Resource efficiency comparison.** *Lower is better for all metrics.*  
-<!-- Add figure here -->
-
-Avg time per image (s)   & 0.230 & 0.207 & \textbf{0.179} \\ \hline
-\end{tabular}
-}
-\end{table}
-
-
-Figure of resource efficiency comparison on KSDD2. Lower is better for all metrics.
-Figure of resource efficiency comparison on MVTec AD.Lower is better for all metrics.
+**MVTec AD — Resource efficiency comparison.** *Lower is better for all metrics (GPU util avg %, GPU power avg W, Energy/correct mWh, CPU memory avg GB).*
+<p align="center">
+  <img src="MVTec_AD.png" width="760" alt="MVTec AD resource efficiency">
+</p>
+<p align="center"><em>Figure. Resource efficiency on MVTec AD.</em></p>
 
