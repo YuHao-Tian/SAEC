@@ -1,4 +1,4 @@
-# SAEC:Scene-Aware-Enhanced-Edge-Cloud-Collaborative-Industrial-Vision-Inspection-with-Multimodal-LLM
+# SAEC:Scene-Aware Enhanced Edge-Cloud-Collaborative Industrial Vision Inspection with Multimodal LLM
 ## Summary
 
 ## Experiment Setup
