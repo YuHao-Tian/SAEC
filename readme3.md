@@ -204,14 +204,6 @@ N_IMG=$(find -L "$DATA/val" -type f \( -iname "*.png" -o -iname "*.jpg" -o -inam
 /home/vipuser/qwenenv/bin/python "$PROFILE"   --gpu $GPU --interval 0.2 --images "$N_IMG"   --save "$RUN/prof_llava_u448_none.json"   -- /home/vipuser/qwenenv/bin/python /home/vipuser/eval_llava_base_mvtec.py      --base /home/vipuser/models/llava-1.5-7b-hf      --data "$DATA"      --resize 448      --max_new_tokens 2 --num_beams 1      --tta none      --save_csv "$RUN/probs.csv"
 ```
 
-Run **YOLOv11s (CPU)** + **QLoRA-Qwen2.5-VL-7B (GPU)**.  
-Reported metrics: Accuracy, Runtime, GPU/CPU usage, Energy efficiency.
-
-Example (MVTec):
-```bash
-/home/vipuser/qwenenv/bin/python schemeB_1k_minrun_v4.py   --data /home/vipuser/data/mvtec_cls_holdout1k_v1   --save_dir /home/vipuser/runs_eval/saec_mvtecad   --yolo_env_py /home/vipuser/yoloenv/bin/python   --qwen_base /home/vipuser/models/Qwen2.5-VL-7B-Instruct_weights   --qwen_adapter /home/vipuser/qlora_qwen25_mvtec   --init_q_ratio 0.30 --cpx_size 192 --qwen_batch 24 --qwen_resize 512
-```
-
 ---
 
 ## 📊 Results
