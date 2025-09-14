@@ -1,1 +1,23 @@
+# Core (PyTorch 2.8.0 + CUDA 12.4)
+torch==2.8.0+cu124 --extra-index-url https://download.pytorch.org/whl/cu124
+torchvision==0.20.0+cu124 --extra-index-url https://download.pytorch.org/whl/cu124
+torchaudio==2.5.0+cu124 --extra-index-url https://download.pytorch.org/whl/cu124
+
+# HuggingFace ecosystem
+transformers==4.44.2
+accelerate==0.34.2
+peft==0.13.0
+bitsandbytes==0.43.3
+tokenizers>=0.19.1
+sentencepiece>=0.2.0
+safetensors>=0.4.3
+
+# Data / image processing
+pillow
+opencv-python
+tqdm
+
+# Optional: for demos & notebooks
+gradio>=4.44.0
+matplotlib
 
