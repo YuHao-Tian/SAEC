@@ -33,6 +33,7 @@ pip install -r requirements/requirements_llava.txt
 
 ## Dataset downloads and preparation
 The experiments used two datasets: MVTec AD dataset(Download link:https://www.mvtec.com/company/research/datasets/mvtec-ad) and ksdd2 dataset(Download link:https://www.vicos.si/resources/kolektorsdd2/) 
+我们把实验的数据集进行改动，把Both are converted to a binary format val/{good, defect} with a unified directory struc- ture and an approximately 1:1 class ratio.的同时，并不影响qlora的训练的数据集，不让数据被预先看见或污染（这块怎么说，你来，这句需要说嘛？）
 
 ## 4bit Qlora Fine-tuning on Qwen-2.5L-VL
 
