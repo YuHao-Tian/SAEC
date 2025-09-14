@@ -1,0 +1,27 @@
+# Core
+torch==2.8.0+cu124 --extra-index-url https://download.pytorch.org/whl/cu124
+torchvision==0.20.0+cu124 --extra-index-url https://download.pytorch.org/whl/cu124
+torchaudio==2.5.0+cu124 --extra-index-url https://download.pytorch.org/whl/cu124
+
+# HuggingFace ecosystem
+transformers==4.55.3
+datasets==2.20.0
+accelerate==0.34.2
+peft==0.13.0
+qwen-vl-utils
+
+# Quantization
+bitsandbytes==0.43.3
+
+# Data / image handling
+pillow
+opencv-python
+tqdm
+
+# Utilities
+scipy
+numpy
+scikit-learn
+
+# Training / logging
+tensorboard
