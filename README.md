@@ -12,6 +12,7 @@ We recommend separate virtual environments to avoid dependency conflicts. Python
 ```bash
 # Qwen (GPU)
 python -m venv qwenenv && source qwenenv/bin/activate
+# Install dependencies
 pip install -r requirements/requirements_qwen.txt
 
 
