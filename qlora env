@@ -1,0 +1,6 @@
+ pip install -U bitsandbytes==0.43.3 transformers==4.55.3 peft==0.13.0 accelerate==0.34.2
+
+
+ run qlora:
+/home/vipuser/qwenenv/bin/python /home/vipuser/train_qwen25_qlora.py   --model /home/vipuser/models/Qwen2.5-VL-7B-Instruct_weights   --data  /home/vipuser/data/mvtec_qwen_sft   --out   /home/vipuser/qlora_qwen25_mvtec   --epochs 3 --bs 2 --ga 8 --lr 2e-4 --use-4bit
+
