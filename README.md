@@ -14,22 +14,50 @@ We recommend separate virtual environments to avoid dependency conflicts. Python
 ```bash
 # Qwen (GPU)
 python -m venv qwenenv && source qwenenv/bin/activate
-# Install dependencies
 pip install -r requirements/requirements_qwen.txt
+
+#Download Qwen-2.5-VL-7B-Instruct weights to a fixed path
+mkdir -p /home/vipuser/models
+pip install -U huggingface_hub  # in case it's missing
+# If the model is gated, accept license on HF and set HF_TOKEN beforehand.
+huggingface-cli download Qwen/Qwen2.5-VL-7B-Instruct \
+  --local-dir /home/vipuser/models/Qwen2.5-VL-7B-Instruct_weights \
+  --local-dir-use-symlinks False --resume-download
+deactivate
 
 
 # YOLO (CPU)
 python -m venv yoloenv && source yoloenv/bin/activate
-# Install dependencies
 pip install -r requirements/requirements_yolo.txt
+
+# Download YOLO11s classification weights (pre-download so scripts can point to a fixed file)
+python - <<'PY'
+from ultralytics import YOLO
+# This triggers an automatic download to the Ultralytics cache (~/.cache/ultralytics)
+YOLO('yolo11s-cls.pt')
+print('downloaded yolo11s-cls.pt to cache')
+PY
+# Move the cached weight to /home/vipuser/models for consistent referencing
+mkdir -p /home/vipuser/models
+find ~/.cache -name 'yolo11s-cls.pt' -print -quit | xargs -I{} cp {} /home/vipuser/models/yolo11s-cls.pt
+deactivate
 
 
 # (Optional) LLaVA baseline
 python -m venv llavaenv && source llavaenv/bin/activate
-# Install dependencies
 pip install -r requirements/requirements_llava.txt
 
+# (Optional) Download LLaVA 1.5 7B weights to a fixed path
+mkdir -p /home/vipuser/models
+huggingface-cli download liuhaotian/llava-v1.5-7b \
+  --local-dir /home/vipuser/models/llava-1.5-7b-hf \
+  --local-dir-use-symlinks False --resume-download
+deactivate
+
+
 ```
+
+
 
 ## Dataset downloads and preparation
 
