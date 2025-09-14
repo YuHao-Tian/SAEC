@@ -7,7 +7,7 @@
 - [Experiment Setup](#experiment-setup)
 - [Environment & Quick Start](#environment--quick-start)
 - [Dataset Preparation](#dataset-preparation)
-- [QLoRA Fine-tuning](#4bit-qlora-fine-tuning-on-qwen-25l-vl)
+- [QLoRA Fine-tuning](#4bit-qlora-fine-tuning-on-qwen-25-vl)
 - [Edge–Cloud Collaboration Experiments](#edgecloud-collaboration-experiments)
 - [Results](#results)
 
