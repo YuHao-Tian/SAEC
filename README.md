@@ -4,8 +4,10 @@
 A minimal edge–cloud pipeline for binary industrial inspection (`good=0`, `defect=1`). A lightweight YOLO runs at the edge CPU, and a multimodal LLM (Qwen-2.5-VL-7B) runs in the cloud. This README mirrors your current structure and commands for quick upload.
 
 ## Experiment Setup
-All experiments are conducted on a single NVIDIA A100 (40 GB) GPU (cloud) and an 8-core Intel Xeon Platinum 8575C CPU (edge). The system is Ubuntu 22.04 and cuda12.4
+All experiments were conducted on a single NVIDIA A100 (40 GB) GPU (cloud) and an 8-core Intel Xeon Platinum 8575C CPU (edge).  
+The system runs Ubuntu 22.04 with CUDA 12.4.  
 
+Please adjust dependency versions according to your own environment.
 ## Environment & Quick Start
 We recommend separate virtual environments to avoid dependency conflicts. Python 3.10+ is recommended.
 
